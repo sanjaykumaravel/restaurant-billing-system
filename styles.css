@@ -1,19 +1,19 @@
         /* --- Root Variables --- */
         :root {
-            --primary: #007bff;
-            --secondary: #6c757d;
-            --success: #28a745;
-            --danger: #dc3545;
-            --warning: #ffc107;
-            --light: #f8f9fa;
-            --dark: #343a40;
-            --background: #f4f7f6;
-            --surface: #ffffff;
-            --outline: #dee2e6;
-            --text: #212529;
-            --muted: #6c757d;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-            --radius: 8px;
+    --primary: #0078ff;
+    --secondary: #6c757d;
+    --success: #28a745;
+    --danger: #dc3545;
+    --warning: #ffc107;
+    --light: #f8f9fa;
+    --dark: #212529;
+    --background: #f5f6f8;
+    --surface: #ffffff;
+    --outline: #dcdcdc;
+    --text: #1c1c1c;
+    --muted: #6c757d;
+    --shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    --radius: 8px;
         }
 
         /* --- Base Styles --- */
