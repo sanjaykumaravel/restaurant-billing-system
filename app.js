@@ -12,7 +12,7 @@
 
         // --- Default menu ---
         const DEFAULT_MENU = [
-            { id: cryptoRandomId(), name: "Tea", price: 12, category: "Beverages", image: "https://placehold.co/600x400/FFF/333?text=Tea" },
+            { id: cryptoRandomId(), name: "Tea", price: 12, category: "Beverages", image: "https://media.istockphoto.com/id/1145169012/photo/many-idli-or-idly-and-coconut-chutney-south-indian-breakfast.jpg?s=612x612&w=0&k=20&c=eaGheWxdd81VAxCdpaBaM9BV4-3601dJ-8gr9yP1B4A=" },
             { id: cryptoRandomId(), name: "Coffee", price: 20, category: "Beverages", image: "https://placehold.co/600x400/FFF/333?text=Coffee" },
             { id: cryptoRandomId(), name: "Idly", price: 30, category: "Breakfast", image: "https://placehold.co/600x400/FFF/333?text=Idly" },
             { id: cryptoRandomId(), name: "Dosa", price: 50, category: "Breakfast", image: "https://placehold.co/600x400/FFF/333?text=Dosa" },
