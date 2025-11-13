@@ -3,7 +3,8 @@ const STORAGE_KEYS = {
 	menu: "rb_menu_items_v1",
 	cart: "rb_cart_v1",
 	sales: "rb_sales_v1",
-	upi: "rb_upi_id_v1"
+	upi: "rb_upi_id_v1",
+	payeeName: "rb_payee_name_v1"
 };
 
 // Default menu with images (royalty-free placeholders)
@@ -22,19 +23,30 @@ let menuItems = loadFromStorage(STORAGE_KEYS.menu, DEFAULT_MENU);
 let cartItems = loadFromStorage(STORAGE_KEYS.cart, []);
 let sales = loadFromStorage(STORAGE_KEYS.sales, []); // array of orders
 let upiIdStored = loadFromStorage(STORAGE_KEYS.upi, "");
+let payeeNameStored = loadFromStorage(STORAGE_KEYS.payeeName, "");
 let currentInvoiceOrder = null;
 
-// App init
-document.addEventListener("DOMContentLoaded", () => {
+// App init - handle both cases: DOM already loaded or not
+function initializeApp() {
 	initNavigation();
 	initMenuView();
 	initCartActions();
 	initManageView();
 	initReportsView();
 	initInvoicesView();
+	initSettingsView();
 	renderMenu();
 	renderCart();
-});
+}
+
+// Check if DOM is already loaded
+if (document.readyState === 'loading') {
+	// DOM is still loading, wait for DOMContentLoaded
+	document.addEventListener("DOMContentLoaded", initializeApp);
+} else {
+	// DOM is already loaded, initialize immediately
+	initializeApp();
+}
 
 // Navigation
 function initNavigation() {
@@ -49,6 +61,10 @@ function initNavigation() {
 function switchView(view) {
 	document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
 	document.querySelector(`#view-${view}`).classList.add("active");
+	// Refresh settings display when switching to settings view
+	if (view === "settings") {
+		updateSettingsDisplay();
+	}
 }
 
 // Menu rendering and interactions
@@ -181,32 +197,218 @@ function renderCart() {
 	});
 }
 
-// Pay Now (QR)
-function onPayNow() {
+// UPI QR Code Generation
+function validateUpiId(upiId) {
+	if (!upiId || typeof upiId !== 'string') return false;
+	// UPI ID format: username@bankname (e.g., merchant@paytm, merchant@ybl, merchant@upi, merchant@okaxis)
+	// Common providers: paytm, ybl, upi, okaxis, okicici, okhdfcbank, etc.
+	const trimmed = upiId.trim();
+	if (trimmed.length < 5 || trimmed.length > 256) return false; // Basic length check
+	const upiPattern = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z0-9]{2,64}$/;
+	return upiPattern.test(trimmed) && trimmed.includes('@');
+}
+
+function validateAmount(amount) {
+	if (typeof amount !== 'number' && typeof amount !== 'string') return false;
+	const num = parseFloat(amount);
+	return !isNaN(num) && num > 0 && num <= 10000000; // Max 1 crore
+}
+
+function generateUpiLink(upiId, payeeName, amount, transactionNote = "") {
+	// Validate inputs
+	if (!validateUpiId(upiId)) {
+		throw new Error("Invalid UPI ID format. Expected format: username@bankname");
+	}
+	if (!payeeName || payeeName.trim().length === 0) {
+		throw new Error("Payee name is required");
+	}
+	if (!validateAmount(amount)) {
+		throw new Error("Invalid amount. Must be a positive number.");
+	}
+
+	// Format amount to 2 decimal places
+	const formattedAmount = parseFloat(amount).toFixed(2);
+	
+	// Encode parameters
+	const pa = encodeURIComponent(upiId.trim());
+	const pn = encodeURIComponent(payeeName.trim());
+	const am = formattedAmount;
+	const cu = "INR";
+	
+	// Build UPI link
+	let upiLink = `upi://pay?pa=${pa}&pn=${pn}&am=${am}&cu=${cu}`;
+	
+	// Add transaction note if provided
+	if (transactionNote && transactionNote.trim().length > 0) {
+		const tn = encodeURIComponent(transactionNote.trim());
+		upiLink += `&tn=${tn}`;
+	}
+	
+	return { upiLink, formattedAmount };
+}
+
+function generateQrCode(upiLink, targetElement, options = {}) {
+	// Check if QRCode library is available - qrcodejs uses QRCode constructor
+	if (typeof QRCode === 'undefined' && typeof window !== 'undefined' && typeof window.QRCode === 'undefined') {
+		return Promise.reject(new Error("QRCode library is not loaded. Please refresh the page and ensure you have an internet connection."));
+	}
+	
+	// Use QRCode from window or global scope
+	const QRCodeLib = window.QRCode || (typeof QRCode !== 'undefined' ? QRCode : null);
+	
+	if (!QRCodeLib) {
+		return Promise.reject(new Error("QRCode library is not loaded. Please refresh the page and ensure you have an internet connection."));
+	}
+	
+	// Get correctLevel - qrcodejs uses numeric values: 0=L, 1=M, 2=Q, 3=H
+	const correctLevel = (QRCodeLib.CorrectLevel && QRCodeLib.CorrectLevel.M) ? QRCodeLib.CorrectLevel.M : 1;
+	
+	const defaultOptions = {
+		width: 256,
+		height: 256,
+		colorDark: "#000000",
+		colorLight: "#ffffff",
+		correctLevel: correctLevel
+	};
+	
+	const qrOptions = { ...defaultOptions, ...options };
+	
+	return new Promise((resolve, reject) => {
+		// Clear previous QR code
+		targetElement.innerHTML = "";
+		
+		try {
+			// qrcodejs uses constructor pattern: new QRCode(element, options)
+			// Create a container div for the QR code
+			const qrContainer = document.createElement('div');
+			qrContainer.style.display = 'flex';
+			qrContainer.style.justifyContent = 'center';
+			qrContainer.style.alignItems = 'center';
+			targetElement.appendChild(qrContainer);
+			
+			// Generate QR code using QRCode constructor
+			const qrcode = new QRCodeLib(qrContainer, {
+				text: upiLink,
+				width: qrOptions.width,
+				height: qrOptions.height,
+				colorDark: qrOptions.colorDark,
+				colorLight: qrOptions.colorLight,
+				correctLevel: qrOptions.correctLevel
+			});
+			
+			// qrcodejs generates the QR code immediately, so we can resolve right away
+			// Find the canvas or img element that was created
+			setTimeout(() => {
+				const qrImg = qrContainer.querySelector('img');
+				const qrCanvas = qrContainer.querySelector('canvas');
+				
+				if (qrImg || qrCanvas) {
+					// Style the QR code element
+					if (qrImg) {
+						qrImg.style.maxWidth = "100%";
+						qrImg.style.height = "auto";
+						qrImg.style.display = "block";
+					}
+					if (qrCanvas) {
+						qrCanvas.style.maxWidth = "100%";
+						qrCanvas.style.height = "auto";
+						qrCanvas.style.display = "block";
+					}
+					resolve(qrContainer);
+				} else {
+					reject(new Error("QR code generation failed - no output element created"));
+				}
+			}, 100);
+			
+		} catch (error) {
+			targetElement.innerHTML = "";
+			reject(new Error(`QR code generation failed: ${error.message}`));
+		}
+	});
+}
+
+// Pay Now (QR) - FINAL FIX (One clean QR only)
+async function onPayNow() {
 	if (cartItems.length === 0) {
 		alert("Cart is empty.");
 		return;
 	}
+
+	// Check if UPI settings exist
+	if (!upiIdStored || !payeeNameStored) {
+		alert("Please configure UPI settings first. Go to Settings and enter your UPI ID and Payee Name.");
+		switchView("settings");
+		return;
+	}
+
 	const { grand } = calcTotals();
 	const modal = document.getElementById("qr-modal");
 	const qrDiv = document.getElementById("qr-code");
+	const qrAmountDiv = document.getElementById("qr-amount");
+
+	// ---- Reset QR area ----
 	qrDiv.innerHTML = "";
+	qrAmountDiv.textContent = "";
+	qrDiv.style.display = "flex";
+	qrDiv.style.justifyContent = "center";
+	qrDiv.style.alignItems = "center";
+	qrDiv.style.padding = "10px";
 
-	// Always show a static QR image URL as requested
-	const imgUrl = "qr/gpay qr.jpg";
-	qrDiv.innerHTML = `<img src="${imgUrl}" alt="QR Code" width="256" height="256" />`;
+	// Prevent multiple generations if already generating
+	if (qrDiv.dataset.generating === "true") return;
+	qrDiv.dataset.generating = "true";
 
+	try {
+		// Generate UPI link
+		const transactionNote = `Payment for order - ${new Date().toLocaleString()}`;
+		const { upiLink, formattedAmount } = generateUpiLink(
+			upiIdStored,
+			payeeNameStored,
+			grand,
+			transactionNote
+		);
+
+		// Display amount
+		qrAmountDiv.textContent = `Amount: ₹${formattedAmount}`;
+
+		// --- Generate QR code once ---
+		// We clear *everything* first to ensure only one QR remains
+		qrDiv.innerHTML = "";
+		const canvas = document.createElement("canvas");
+		qrDiv.appendChild(canvas);
+
+		await generateQrCode(upiLink, canvas, {
+			width: 256,
+			height: 256,
+			colorDark: "#000000",
+			colorLight: "#ffffff"
+		});
+
+		console.log("✅ QR Generated for:", upiLink);
+	} catch (error) {
+		console.error("QR generation error:", error);
+		qrDiv.innerHTML = `<div style='padding:20px;color:#ff4444;'>Error: ${escapeHtml(error.message)}</div>`;
+	} finally {
+		delete qrDiv.dataset.generating;
+	}
+
+	// ---- Modal Control ----
 	modal.classList.add("show");
-	document.getElementById("close-qr").onclick = () => modal.classList.remove("show");
+
+	document.getElementById("close-qr").onclick = () => {
+		modal.classList.remove("show");
+	};
+
 	document.getElementById("mark-paid").onclick = () => {
 		recordSale();
 		cartItems = [];
 		saveToStorage(STORAGE_KEYS.cart, cartItems);
 		renderCart();
 		modal.classList.remove("show");
-		alert("Payment recorded. Thank you!");
+		alert("Payment recorded successfully!");
 	};
 }
+
 
 // Prepare print area from a given order (used by invoice modal)
 function populatePrintAreaFromOrder(order) {
@@ -507,6 +709,58 @@ function generateInvoicePdf() {
 	// html2pdf returns a promise; trigger save automatically
 	// eslint-disable-next-line no-undef
 	html2pdf().from(billEl).set(opt).save();
+}
+
+// Settings View
+function initSettingsView() {
+	const form = document.getElementById("upi-settings-form");
+	if (!form) return;
+	
+	// Load current settings
+	document.getElementById("upi-id").value = upiIdStored || "";
+	document.getElementById("payee-name").value = payeeNameStored || "";
+	updateSettingsDisplay();
+	
+	form.addEventListener("submit", (e) => {
+		e.preventDefault();
+		const upiId = document.getElementById("upi-id").value.trim();
+		const payeeName = document.getElementById("payee-name").value.trim();
+		
+		// Validate UPI ID
+		if (!validateUpiId(upiId)) {
+			alert("Invalid UPI ID format. Expected format: username@bankname (e.g., merchant@paytm, merchant@ybl)");
+			return;
+		}
+		
+		// Validate payee name
+		if (!payeeName || payeeName.length === 0) {
+			alert("Payee name is required.");
+			return;
+		}
+		
+		// Save settings
+		upiIdStored = upiId;
+		payeeNameStored = payeeName;
+		saveToStorage(STORAGE_KEYS.upi, upiIdStored);
+		saveToStorage(STORAGE_KEYS.payeeName, payeeNameStored);
+		
+		updateSettingsDisplay();
+		alert("Settings saved successfully!");
+	});
+}
+
+function updateSettingsDisplay() {
+	const configDiv = document.getElementById("current-upi-config");
+	if (!configDiv) return;
+	
+	if (upiIdStored && payeeNameStored) {
+		configDiv.innerHTML = `
+			<div><strong>UPI ID:</strong> ${escapeHtml(upiIdStored)}</div>
+			<div style="margin-top: 8px;"><strong>Payee Name:</strong> ${escapeHtml(payeeNameStored)}</div>
+		`;
+	} else {
+		configDiv.textContent = "No UPI settings configured yet.";
+	}
 }
 
 // Utils

@@ -20,6 +20,7 @@
 			<button class="nav-btn" data-view="invoices">Invoices</button>
 			<button class="nav-btn" data-view="manage">Manage Menu</button>
 			<button class="nav-btn" data-view="reports">Monthly Sales</button>
+			<button class="nav-btn" data-view="settings">Settings</button>
 		</nav>
 	</header>
 
@@ -102,6 +103,29 @@
 			<div id="report-summary" class="report-summary"></div>
 			<div id="report-table" class="report-table"></div>
 		</section>
+
+		<section id="view-settings" class="view">
+			<h2>Payment Settings</h2>
+			<form id="upi-settings-form" class="menu-form">
+				<div class="form-row">
+					<label>UPI ID (pa) <span style="color: var(--muted);">*</span></label>
+					<input id="upi-id" type="text" placeholder="e.g., merchant@paytm or merchant@ybl" required />
+					<small style="color: var(--muted); font-size: 12px;">Your UPI payment address (mandatory)</small>
+				</div>
+				<div class="form-row">
+					<label>Payee Name (pn) <span style="color: var(--muted);">*</span></label>
+					<input id="payee-name" type="text" placeholder="e.g., Restaurant Name" required />
+					<small style="color: var(--muted); font-size: 12px;">Name shown to customers (mandatory)</small>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="primary">Save Settings</button>
+				</div>
+			</form>
+			<div style="margin-top: 24px; padding: 16px; background: var(--surface); border-radius: 8px; border: 1px solid var(--outline);">
+				<h3 style="margin-top: 0;">Current Configuration</h3>
+				<div id="current-upi-config" style="color: var(--muted);">No UPI settings configured yet.</div>
+			</div>
+		</section>
 	</main>
 
 	<!-- QR Modal -->
@@ -112,6 +136,7 @@
 				<button id="close-qr" class="icon-btn" aria-label="Close">✖</button>
 			</div>
 			<div id="qr-code" class="qr-code"></div>
+			<div id="qr-amount" style="text-align: center; font-weight: 600; margin: 8px 0; color: var(--primary);"></div>
 			<div class="qr-note">Use any UPI/QR scanner to pay the bill amount.</div>
 			<div class="modal-actions">
 				<button id="mark-paid" class="primary">Mark as Paid</button>
@@ -144,8 +169,8 @@
 		</div>
 	</div>
 
-	<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script> 
 	<script src="app.js"></script>
 </body>
 </html>
