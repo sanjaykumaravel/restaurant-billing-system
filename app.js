@@ -82,6 +82,7 @@
             DOM.itemPrice = document.getElementById("item-price");
             DOM.itemImage = document.getElementById("item-image");
             DOM.itemCategory = document.getElementById("item-category");
+            DOM.itemSoldOut = document.getElementById("item-sold-out");
             // Reports
             DOM.reportMonth = document.getElementById("report-month");
             DOM.loadReportBtn = document.getElementById("load-report");
@@ -192,19 +193,25 @@
                 return;
             }
             
-            DOM.menuGrid.innerHTML = filtered.map((m) => `
-                <div class="card">
+            DOM.menuGrid.innerHTML = filtered.map((m) => {
+                const isSoldOut = m.soldOut || false;
+                const soldOutClass = isSoldOut ? "sold-out" : "";
+                const soldOutStyle = isSoldOut ? "text-decoration: line-through; opacity: 0.6;" : "";
+                return `
+                <div class="card ${soldOutClass}">
                     <img src="${escapeHtml(m.image || '')}" alt="${escapeHtml(m.name)}" onerror="this.src='https://placehold.co/600x400/eee/999?text=${encodeURIComponent(m.name)}'"/>
                     <div class="card-body">
                         <div>
-                            <div class="card-title">${escapeHtml(m.name)}</div>
+                            <div class="card-title" style="${soldOutStyle}">${escapeHtml(m.name)}</div>
                             <div class="muted" style="color: var(--muted); font-size: 12px;">${escapeHtml(m.category || "Uncategorized")}</div>
+                            ${isSoldOut ? '<div style="color: var(--danger); font-size: 12px; font-weight: 600; margin-top: 4px;">SOLD OUT</div>' : ''}
                         </div>
-                        <div class="price">₹${formatMoney(m.price)}</div>
-                        <button class="add-btn" data-id="${m.id}">Add</button>
+                        <div class="price" style="${soldOutStyle}">₹${formatMoney(m.price)}</div>
+                        <button class="add-btn" data-id="${m.id}" ${isSoldOut ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>${isSoldOut ? 'Sold Out' : 'Add'}</button>
                     </div>
                 </div>
-            `).join("");
+            `;
+            }).join("");
         }
 
         // --- Cart ---
@@ -254,6 +261,10 @@
         function addToCart(menuId, qty) {
             const menuItem = menuItems.find((m) => m.id === menuId);
             if (!menuItem) return;
+            if (menuItem.soldOut) {
+                showCustomAlert("This item is currently sold out.");
+                return;
+            }
             const existing = cartItems.find((c) => c.menuId === menuId);
             if (existing) {
                 existing.qty += qty;
@@ -498,6 +509,7 @@
                 const price = Number(DOM.itemPrice.value);
                 const image = DOM.itemImage.value.trim(); // Can be empty
                 const category = DOM.itemCategory.value.trim();
+                const soldOut = DOM.itemSoldOut.checked;
                 
                 if (!name || price <= 0) {
                     showCustomAlert("Please provide valid Name and Price.");
@@ -507,10 +519,10 @@
                 if (id) {
                     const idx = menuItems.findIndex((m) => m.id === id);
                     if (idx >= 0) {
-                        menuItems[idx] = { ...menuItems[idx], name, price, image, category };
+                        menuItems[idx] = { ...menuItems[idx], name, price, image, category, soldOut };
                     }
                 } else {
-                    menuItems.push({ id: cryptoRandomId(), name, price, image, category });
+                    menuItems.push({ id: cryptoRandomId(), name, price, image, category, soldOut });
                 }
                 saveToStorage(STORAGE_KEYS.menu, menuItems);
                 DOM.manageForm.reset();
@@ -540,6 +552,7 @@
                     DOM.itemPrice.value = item.price;
                     DOM.itemImage.value = item.image || "";
                     DOM.itemCategory.value = item.category || "";
+                    DOM.itemSoldOut.checked = item.soldOut || false;
                     DOM.manageForm.scrollIntoView({ behavior: 'smooth' }); // Scroll to form
                 }
 
@@ -575,11 +588,14 @@
                 return;
             }
             
-            DOM.manageList.innerHTML = filtered.map((m) => `
+            DOM.manageList.innerHTML = filtered.map((m) => {
+                const isSoldOut = m.soldOut || false;
+                const soldOutStyle = isSoldOut ? "text-decoration: line-through; opacity: 0.6;" : "";
+                return `
                 <div class="manage-item">
                     <img src="${escapeHtml(m.image || '')}" alt="${escapeHtml(m.name)}" onerror="this.src='https://placehold.co/96x96/eee/999?text=${encodeURIComponent(m.name)}'"/>
                     <div>
-                        <div><strong>${escapeHtml(m.name)}</strong></div>
+                        <div><strong style="${soldOutStyle}">${escapeHtml(m.name)}</strong> ${isSoldOut ? '<span style="color: var(--danger); font-size: 11px; margin-left: 8px; font-weight: 600;">SOLD OUT</span>' : ''}</div>
                         <div style="color: var(--muted); font-size: 12px;">₹${formatMoney(m.price)} · ${escapeHtml(m.category || "Uncategorized")}</div>
                     </div>
                     <div class="manage-actions">
@@ -587,7 +603,8 @@
                         <button class="del-btn" data-id="${m.id}">Delete</button>
                     </div>
                 </div>
-            `).join("");
+            `;
+            }).join("");
         }
 
         // --- Reports ---
